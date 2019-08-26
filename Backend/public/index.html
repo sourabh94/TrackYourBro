@@ -3,15 +3,68 @@
   <head>
     
     <meta name="viewport" content="initial-scale=1.0,width=device-width" />
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>    
+
+
+
     <script src="https://js.api.here.com/v3/3.1/mapsjs-core.js" type="text/javascript" charset="utf-8"></script>
     <script src="https://js.api.here.com/v3/3.1/mapsjs-service.js" type="text/javascript" charset="utf-8"></script>
     <script src="https://js.api.here.com/v3/3.1/mapsjs-mapevents.js" type="text/javascript" charset="utf-8"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-ui.js" type="text/javascript" charset="utf-8"></script>
+    <link rel="stylesheet" type="text/css" href="https://js.api.here.com/v3/3.1/mapsjs-ui.css" />
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
+
+    <style type="text/css">
+      body{
+        margin: 20px;
+      }
+      #messageArea{
+        display: none;
+      }
+    </style>
   </head>
   <body>
-    
-    <div style="width: 640px; height: 480px" id="mapContainer"></div>
+    <div class="container">
+      <div class="row">
+        <div class="col-md-6">
+          <div style="width: 100%; height: 480px" id="mapContainer"></div>      
+        </div>
+        <div id="userArea" class="col-md-6">
+          <form id="userForm">
+              <div class="form-group">
+                <label>Enter Username</label>
+                <input class="form-control" id="username"/>
+                <br>
+                <input type="submit" class="btn btn-primary" name="" value="Start">
+              </div>
+            </form>
+        </div>
+        <div class="col-md-6" id="messageArea">
+          <div class="col-md-4 float-left">
+            <div class="card card-body bg-light">
+              <h5>Online Users</h5>
+              <ul class="list-group" id="users"></ul>
+            </div>
+          </div>
+          <div class="col-md-8 float-left">
+            <div class="chat" id="chat"></div>
 
+            <form id="messageForm">
+              <div class="form-group">
+                <label>Enter Message</label>
+                <textarea class="form-control" id="message"></textarea>
+                <br>
+                <input type="submit" class="btn btn-primary" name="" value="Send Message">
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <script>
       var platform = new H.service.Platform({
         'apikey': 'njX79mQ8cF0Yw7CTXonD3_OkrUJpPUQ6K3kTYM2W1mg'
@@ -24,10 +77,10 @@
       var map = new H.Map(
         document.getElementById('mapContainer'),
         defaultLayers.vector.normal.map,
-        { 
-          zoom: 10,
-          center: { lat: 52.5, lng: 13.4 }
-        });
+        );
+
+      // Create the default UI:
+      var ui = H.ui.UI.createDefault(map, defaultLayers);
       
       const mapEvents = new H.mapevents.MapEvents(map);
       const behavior = new H.mapevents.Behavior(mapEvents);
@@ -38,8 +91,30 @@
         map.addObject(marker);
       });
 
-      map.addEventListener('tap', function(event){
+
+      //User geolocation 
+      var x = document.getElementById("demo");
+      function getLocation() {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(showPosition);
+          } else {
+            x.innerHTML = "Geolocation is not supported by this browser.";
+          }
+      }
+      function showPosition(position) {
+        var coords = {lat: position.coords.latitude, lng: position.coords.longitude};
         
+          // Create an icon, an object holding the latitude and longitude, and a marker:
+          //var icon = new H.map.Icon('img/wifi.png');
+            var userMarker = new H.map.Marker(coords);
+            map.addObject(userMarker);
+            map.setCenter(coords);
+            map.setZoom(17);
+      }
+      getLocation();
+
+      //Tap event for marking a gathering or haunt
+      map.addEventListener('tap', function(event){
         var position = map.screenToGeo(
           event.currentPointer.viewportX,
           event.currentPointer.viewportY);
@@ -49,7 +124,50 @@
         socket.emit("marker",position);
       });
 
+      //chat socket
+      var messageForm = $('#messageForm');
+      var message = $('#message');
+      var chat = $('#chat');
+      var messageArea = $('#messageArea');
+      var userArea = $('#userArea');
+      var userForm = $('#userForm');
+      var users = $('#users');
+      var username = $('#username');
+
+
+      messageForm.submit(function(e){
+        e.preventDefault();
+        socket.emit('send message', message.val());
+        message.val('');
+      });
+
+      socket.on("new message", data =>{
+        chat.append('<div class="card card-body bg-light"><strong>'+data.user+':</strong>'+data.msg+'</div>')
+      });
+
+      userForm.submit(function(e){
+        e.preventDefault();
+        socket.emit('new user', username.val(), function(data){
+          if (data) {
+            userArea.hide();
+            messageArea.show();
+          }
+        });
+        username.val('');
+      });
+      socket.on('get users', function(data){
+        var html = '';
+        for(i=0; i<data.length;i++){
+          html = '<li class="list-group-item">'+data[i]+'</li>';
+        }
+        users.html(html);
+      });
     </script>
+
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
   </body>
 
   </html>
