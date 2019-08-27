@@ -19,7 +19,7 @@
 
     <style type="text/css">
       body{
-        margin: 20px;
+        margin: 10px;
       }
       #messageArea{
         display: none;
@@ -62,6 +62,7 @@
             </form>
           </div>
         </div>
+        <div id="pmReciver"></div>
       </div>
     </div>
     
@@ -133,15 +134,17 @@
       var userForm = $('#userForm');
       var users = $('#users');
       var username = $('#username');
-
+      var pmReciver = '';
 
       messageForm.submit(function(e){
         e.preventDefault();
+        console.log(pmReciver);
         socket.emit('send message', message.val());
         message.val('');
       });
 
       socket.on("new message", data =>{
+        console.log(data);
         chat.append('<div class="card card-body bg-light"><strong>'+data.user+':</strong>'+data.msg+'</div>')
       });
 
@@ -156,12 +159,18 @@
         username.val('');
       });
       socket.on('get users', function(data){
+        console.log(data);
         var html = '';
+        $('#users').html(html);
         for(i=0; i<data.length;i++){
-          html = '<li class="list-group-item">'+data[i]+'</li>';
+         html += '<button class="list-group-item pm">'+data[i]+'</button>';
         }
-        users.html(html);
+        $('#users').html(html);
       });
+      var setReciver = function(userReci){
+        
+        //console.log(pmReciver);
+      }
     </script>
 
 
