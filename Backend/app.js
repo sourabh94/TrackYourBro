@@ -1,8 +1,21 @@
 const express = require("express");
 const app = require("express")();
 const Http = require("http").Server(app);
-const Socketio = require("socket.io")(Http);
-var fs = require('fs');
+const Socketio = require("socket.io")(Http); 
+const fs = require('fs');
+const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser');
+
+//Auth packages
+const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+
+const routes = require('./routes/index');
+const userRoutes = require('./routes/users');
+
+require('dotenv').config();
 
 const sockFolder = 'socket';
 const markers = [];
@@ -10,7 +23,37 @@ const markers = [];
 var users={};
 var connections = [];
 
+// parse application/json
+app.use(bodyParser.json());                        
+
+// parse application/x-www-form-urlencoded
+app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(cookieParser());
 app.use(express.static('public'));
+
+var options = {
+	host : 'localhost',
+	user : 'root',
+	password : '',
+	database : 'trackyourbro'
+};
+
+var sessionStore = new MySQLStore(options);
+
+app.use(session({
+  secret: 'YqKhTnnqzU',
+  resave: false,
+  store: sessionStore,
+  saveUninitialized: false,
+  //cookie: { secure: true }  //used for https
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+
+
+app.use('/', routes);
+app.use('/user', userRoutes);
 
 // const files = fs.readdirSync(sockFolder).forEach(file => {
 //   		console.log(file);
@@ -85,8 +128,3 @@ Http.listen(3000, ()=>{
 	console.log("Listening at : 3000");
 });
 
-app.get('/', (req,res) => {
-  res.sendFile(__dirname+'/public/index.html');
-}).on('error', (e) => {
-  console.error(`Got error: ${e.message}`);
-});
